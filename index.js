@@ -24,6 +24,14 @@ app.get('/api/greet', (req, res) => {
   });
 });
 
+// Random number endpoint
+app.get('/api/random', (req, res) => {
+  const randomNumber = Math.floor(Math.random() * 10) + 1; // تولید عدد تصادفی بین 1 تا 10
+  return res.json({
+    number: randomNumber
+  });
+});
+
 // For Vercel serverless deployment
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
