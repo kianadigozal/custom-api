@@ -1,5 +1,6 @@
 const express = require('express');
 const app = express();
+const axios = require('axios'); // برای ارسال درخواست HTTP
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
@@ -30,6 +31,35 @@ app.get('/api/random', (req, res) => {
   return res.json({
     number: randomNumber
   });
+});
+
+// Image generation endpoint
+app.get('/api/image', async (req, res) => {
+  try {
+    const query = req.query.q || 'dog'; // اگر پارامتر ارسال نشده باشد، از 'dog' استفاده می‌کند
+    const response = await axios.get(`https://open.wiki-api.ir/apis-1/MakePhotoAi?q=${encodeURIComponent(query)}`);
+    
+    if (response.data.status && response.data.results.img) {
+      // دریافت تصویر از آدرس ارائه شده
+      const imageResponse = await axios.get(response.data.results.img, { responseType: 'arraybuffer' });
+      
+      // تنظیم هدرهای پاسخ
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'no-cache');
+      
+      // ارسال تصویر
+      return res.send(imageResponse.data);
+    } else {
+      return res.status(400).json({
+        error: 'خطا در دریافت تصویر از سرویس Wiki-Api'
+      });
+    }
+  } catch (error) {
+    console.error('Error:', error.message);
+    return res.status(500).json({
+      error: 'خطا در پردازش درخواست'
+    });
+  }
 });
 
 // For Vercel serverless deployment
