@@ -1,6 +1,9 @@
 const express = require('express');
 const app = express();
 const axios = require('axios'); // برای ارسال درخواست HTTP
+const fs = require('fs').promises;
+const path = require('path');
+const crypto = require('crypto');
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
@@ -8,6 +11,26 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   next();
 });
+
+// ایجاد پوشه temp اگر وجود نداشته باشد
+const tempDir = path.join(__dirname, 'temp');
+fs.mkdir(tempDir, { recursive: true }).catch(console.error);
+
+// تابع ایجاد نام تصادفی برای فایل
+function generateRandomFileName() {
+  return crypto.randomBytes(16).toString('hex') + '.png';
+}
+
+// تابع حذف فایل بعد از مدت زمان مشخص
+async function deleteFileAfterDelay(filePath, delayMs) {
+  try {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    await fs.unlink(filePath);
+    console.log(`File deleted: ${filePath}`);
+  } catch (error) {
+    console.error(`Error deleting file ${filePath}:`, error);
+  }
+}
 
 // Greeting endpoint
 app.get('/api/greet', (req, res) => {
@@ -43,12 +66,22 @@ app.get('/api/image', async (req, res) => {
       // دریافت تصویر از آدرس ارائه شده
       const imageResponse = await axios.get(response.data.results.img, { responseType: 'arraybuffer' });
       
-      // تنظیم هدرهای پاسخ
+      // ایجاد نام تصادفی برای فایل
+      const randomFileName = generateRandomFileName();
+      const filePath = path.join(tempDir, randomFileName);
+      
+      // ذخیره فایل
+      await fs.writeFile(filePath, imageResponse.data);
+      console.log(`File saved: ${filePath}`);
+      
+      // تنظیم حذف فایل بعد از 120 ثانیه
+      deleteFileAfterDelay(filePath, 120000); // 120000 milliseconds = 120 seconds
+      
+      // ارسال فایل به کاربر
       res.setHeader('Content-Type', 'image/png');
       res.setHeader('Cache-Control', 'no-cache');
-      
-      // ارسال تصویر
-      return res.send(imageResponse.data);
+      const fileStream = await fs.readFile(filePath);
+      res.send(fileStream);
     } else {
       return res.status(400).json({
         error: 'خطا در دریافت تصویر از سرویس Wiki-Api'
